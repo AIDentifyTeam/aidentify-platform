@@ -211,3 +211,4 @@ __marimo__/
 *.pyc
 *.sqlite3
 .env
+tooth_images/
