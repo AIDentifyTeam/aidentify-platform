@@ -1,7 +1,7 @@
 # endo/serializers/auth.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-
+from .diagnosis_engine import calculate_diagnosis
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
 
 Doctor = get_user_model()
@@ -58,14 +58,6 @@ class VisitHistorySerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology']
 
-    def calculate_diagnoses(self, answers):
-        # 🔧 Placeholder: Replace this with real logic
-        return {
-            'pulp_diagnosis': 'Pending Diagnosis',
-            'periapical_disease': 'Pending Diagnosis',
-            'etiology': 'Pending Diagnosis'
-        }
-
     def create(self, validated_data):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
@@ -73,7 +65,7 @@ class VisitHistorySerializer(serializers.ModelSerializer):
 
         # Run placeholder logic to populate calculated fields
         answers = validated_data.get('answers', {})
-        diagnoses = self.calculate_diagnoses(answers)
+        diagnoses = calculate_diagnosis(answers)
         validated_data.update(diagnoses)
 
         return super().create(validated_data)
