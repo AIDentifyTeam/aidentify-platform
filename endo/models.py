@@ -47,9 +47,9 @@ class VisitHistory(models.Model):
     visit_date = models.DateField(auto_now_add=True)
     tooth_image = models.ImageField(upload_to='tooth_images/', null=True, blank=True)
     answers = models.JSONField(default=dict)  # Stores the diagnosis question answers
-    pulp_diagnosis = models.CharField(max_length=100)
-    periapical_disease = models.CharField(max_length=100)
-    etiology = models.CharField(max_length=100)
+    pulp_diagnosis = models.CharField(max_length=100, null=True, blank=True)
+    periapical_disease = models.CharField(max_length=100, null=True, blank=True)
+    etiology = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"{self.patient} - Tooth {self.tooth_number} on {self.visit_date}"

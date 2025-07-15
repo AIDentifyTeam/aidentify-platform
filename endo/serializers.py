@@ -56,12 +56,26 @@ class VisitHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = VisitHistory
         fields = '__all__'
-        read_only_fields = ['doctor', 'visit_date']
+        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology']
+
+    def calculate_diagnoses(self, answers):
+        # 🔧 Placeholder: Replace this with real logic
+        return {
+            'pulp_diagnosis': 'Pending Diagnosis',
+            'periapical_disease': 'Pending Diagnosis',
+            'etiology': 'Pending Diagnosis'
+        }
 
     def create(self, validated_data):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             validated_data['doctor'] = request.user
+
+        # Run placeholder logic to populate calculated fields
+        answers = validated_data.get('answers', {})
+        diagnoses = self.calculate_diagnoses(answers)
+        validated_data.update(diagnoses)
+
         return super().create(validated_data)
     
 class ResearchPaperSerializer(serializers.ModelSerializer):

@@ -36,6 +36,9 @@ class PatientViewSet(viewsets.ModelViewSet):
     serializer_class = PatientSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self): # type: ignore
+        return Patient.objects.filter(doctor=self.request.user)
+
     def get_serializer_context(self):
         # So the serializer can access the request.user
         return {'request': self.request}
@@ -45,8 +48,12 @@ class VisitHistoryViewSet(viewsets.ModelViewSet):
     serializer_class = VisitHistorySerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self): # type: ignore
-        return VisitHistory.objects.filter(doctor=self.request.user)
+    def get_queryset(self):  # type: ignore
+        queryset = VisitHistory.objects.filter(doctor=self.request.user)
+        patient_id = self.request.query_params.get('patient') # type: ignore
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+        return queryset
     
 class ResearchPaperViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ResearchPaper.objects.all().order_by('-added_date')
