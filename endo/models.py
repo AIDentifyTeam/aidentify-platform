@@ -44,7 +44,7 @@ class VisitHistory(models.Model):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='visits')
     doctor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='visits')
     tooth_number = models.CharField(max_length=10)
-    visit_date = models.DateField(auto_now_add=True)
+    visit_date = models.DateTimeField(auto_now_add=True)
     tooth_image = models.ImageField(upload_to='tooth_images/', null=True, blank=True)
     answers = models.JSONField(default=dict)  # Stores the diagnosis question answers
     pulp_diagnosis = models.CharField(max_length=100, null=True, blank=True)
