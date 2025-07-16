@@ -6,6 +6,7 @@ from rest_framework import status
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
 from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class RegisterDoctorView(APIView):
     def post(self, request):
@@ -38,6 +39,18 @@ class ChangePasswordView(APIView):
         user.save()
 
         return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]

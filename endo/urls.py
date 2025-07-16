@@ -1,6 +1,6 @@
 # endo/urls.py
 from django.urls import path, include
-from endo.views import ChangePasswordView, DeleteAccountView, DoctorProfileView, NotificationReadStatusViewSet, NotificationViewSet, RegisterDoctorView, PatientViewSet, ResearchPaperViewSet, VisitHistoryViewSet
+from endo.views import ChangePasswordView, DeleteAccountView, DoctorProfileView, LogoutView, NotificationReadStatusViewSet, NotificationViewSet, RegisterDoctorView, PatientViewSet, ResearchPaperViewSet, VisitHistoryViewSet
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -15,5 +15,6 @@ urlpatterns = [
     path('profile/', DoctorProfileView.as_view(), name='doctor-profile'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
+    path('logout/', LogoutView.as_view(), name='logout'),
     path('', include(router.urls)),
 ]
