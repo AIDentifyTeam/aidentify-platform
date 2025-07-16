@@ -27,6 +27,7 @@ class Patient(models.Model):
     email = models.EmailField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True) 
+    patient_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -50,7 +51,8 @@ class VisitHistory(models.Model):
     pulp_diagnosis = models.CharField(max_length=100, null=True, blank=True)
     periapical_disease = models.CharField(max_length=100, null=True, blank=True)
     etiology = models.CharField(max_length=100, null=True, blank=True)
-
+    case_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    
     def __str__(self):
         return f"{self.patient} - Tooth {self.tooth_number} on {self.visit_date}"
 

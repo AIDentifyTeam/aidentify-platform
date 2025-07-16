@@ -45,12 +45,13 @@ class PatientSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'birth_date',
+            'patient_id',
             'phone',
             'email',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'patient_id']
 
     def create(self, validated_data):
         request = self.context.get('request')
@@ -62,7 +63,7 @@ class VisitHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = VisitHistory
         fields = '__all__'
-        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology']
+        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology', 'case_id']
 
     def create(self, validated_data):
         request = self.context.get('request')

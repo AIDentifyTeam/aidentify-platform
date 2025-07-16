@@ -88,6 +88,13 @@ class PatientViewSet(viewsets.ModelViewSet):
         # So the serializer can access the request.user
         return {'request': self.request}
     
+    def perform_create(self, serializer):
+        doctor = self.request.user
+        existing_count = Patient.objects.filter(doctor=doctor).count()
+        new_number = existing_count + 1
+        patient_id = f"D{doctor.id:04d}-P{new_number:06d}" # type: ignore
+        serializer.save(doctor=doctor, patient_id=patient_id)
+    
 class VisitHistoryViewSet(viewsets.ModelViewSet):
     queryset = VisitHistory.objects.all()
     serializer_class = VisitHistorySerializer
@@ -99,6 +106,19 @@ class VisitHistoryViewSet(viewsets.ModelViewSet):
         if patient_id:
             queryset = queryset.filter(patient_id=patient_id)
         return queryset
+
+    def perform_create(self, serializer):
+        patient = serializer.validated_data['patient']
+
+        # Count previous visits of this patient
+        visit_count = VisitHistory.objects.filter(patient=patient).count()
+        new_case_number = visit_count + 1
+
+        # Create the case_id: PIDxxxxxxx-CIDxxxxxxx
+        case_id = f"{patient.patient_id}-CID{new_case_number:07d}"
+
+        # Save the visit with case_id and the doctor
+        serializer.save(doctor=self.request.user, case_id=case_id)
     
 class ResearchPaperViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ResearchPaper.objects.all().order_by('-added_date')
