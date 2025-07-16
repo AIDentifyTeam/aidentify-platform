@@ -8,10 +8,16 @@ Doctor = get_user_model()
 
 class DoctorRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-
+    profile_image = serializers.ImageField(allow_null=True, required=False)
+    
     class Meta:
         model = Doctor
-        fields = ['email', 'first_name', 'last_name', 'password', 'specialization']
+        fields = [
+            'id', 'username', 'email',
+            'first_name', 'last_name',
+            'specialization', 'profile_image', 'password'
+        ]
+    
 
     def create(self, validated_data):
         user = Doctor(
@@ -29,7 +35,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'specialization', 'profile_image']
-        read_only_fields = ['id', 'username']
+        read_only_fields = ['id', 'username', 'email'] 
         
 class PatientSerializer(serializers.ModelSerializer):
     class Meta:
