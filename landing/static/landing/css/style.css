@@ -1,7 +1,7 @@
 body {
     margin: 0;
     font-family: "Raleway", sans-serif;
-    background: url('../images/background.jpg') no-repeat center center fixed;
+    background: url('../images/background4.jpg') no-repeat center center fixed;
     background-size: cover;
     display: flex;
     align-items: center;
@@ -11,7 +11,7 @@ body {
 }
 
 .glass-card {
-    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9));
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border-radius: 24px;
@@ -48,7 +48,7 @@ h1 {
 
 .release-note {
     margin-top: 20px;
-    font-size: 16px;
+    font-size: 12px;
     color: #eee;
     line-height: 1.6;
 }
