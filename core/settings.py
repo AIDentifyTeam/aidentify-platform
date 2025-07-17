@@ -132,6 +132,8 @@ AUTH_USER_MODEL = 'endo.Doctor'
 # Media files (for profile images, etc.)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATICFILES_DIRS = [BASE_DIR / 'landing' / 'static']
+TEMPLATES[0]['DIRS'] = [BASE_DIR / 'landing' / 'templates']
 
 INSTALLED_APPS += [
     'rest_framework',
@@ -151,3 +153,6 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+
+# for production
+STATIC_ROOT = BASE_DIR / 'staticfiles'

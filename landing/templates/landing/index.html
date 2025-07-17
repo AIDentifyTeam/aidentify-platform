@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIdentify</title>
+
+  <link rel="icon" type="image/png" href="{% static 'landing/images/Logo.png' %}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'landing/css/style.css' %}">
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+
+<body>
+<div class="glass-card">
+  <img src="{% static 'landing/images/Logo_big.png' %}" alt="AIdentify Big Logo" class="logo" />
+  <h1>Where science and technology meet</h1>
+
+  <div class="release-note">
+    <strong>EndoApp Release Note:</strong><br />
+    Version 0.1 Blueberry (Beta) released.<br />
+    You can download from the links below:
+  </div>
+  <!-- Icon Buttons -->
+<div class="platform-icons d-flex flex-wrap gap-3 justify-content-center">
+  <!-- Windows -->
+  <a href="#" class="text-decoration-none">
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-primary text-white"
+         style="width: 64px; height: 64px;">
+      <i class="fab fa-windows fa-2x"></i>
+    </div>
+  </a>
+
+  <!-- Android -->
+  <a href="#" class="disabled-icon text-decoration-none">
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-success text-white"
+         style="width: 64px; height: 64px;">
+      <i class="bi bi-android2" style="font-size: 32px;"></i>
+    </div>
+  </a>
+
+  <!-- macOS -->
+  <a href="#" class="disabled-icon text-decoration-none">
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-secondary text-white"
+         style="width: 64px; height: 64px;">
+      <i class="fab fa-apple fa-2x"></i>
+    </div>
+  </a>
+
+  <!-- iOS -->
+  <a href="#" class="disabled-icon text-decoration-none">
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-danger text-white"
+         style="width: 64px; height: 64px;">
+      <i class="fas fa-mobile-alt fa-2x"></i>
+    </div>
+  </a>
+
+  <!-- Web -->
+  <a href="#" class="disabled-icon text-decoration-none">
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-warning text-white"
+         style="width: 64px; height: 64px;">
+      <i class="fas fa-globe fa-2x"></i>
+    </div>
+  </a>
+</div>
+
+<!-- Support line -->
+<p class="mt-4 text-white text-center" style="font-size: 0.95rem;">
+  If you have any ideas, email us at <a href="mailto:support@aidentify.app" class="text-info">support@aidentify.app</a>
+</p>
+</div>  
+  <footer>© AIdentify 2025 – All rights reserved.</footer>
+<script src="{% static 'landing/js/script.js' %}"></script>
+</body>
+</html>

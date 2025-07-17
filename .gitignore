@@ -212,3 +212,4 @@ __marimo__/
 *.sqlite3
 .env
 media/
+staticfiles/

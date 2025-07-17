@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.shortcuts import render
 
-def home(request):
-    return HttpResponse("<h1>Welcome to AIdentify</h1><p>This is our landing page.</p>")
+def landing_page(request):
+    return render(request, 'landing/index.html')
