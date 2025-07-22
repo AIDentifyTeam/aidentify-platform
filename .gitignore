@@ -214,8 +214,10 @@ __marimo__/
 media/
 staticfiles/
 
-# Ignore all files inside the v0.1.0 folder
+# Ignore all files inside version folders
 landing/static/landing/downloads/v*/*
 
-# BUT allow the folder itself to be kept
+# But allow version folders and .gitkeep files
+!landing/static/landing/downloads/
+!landing/static/landing/downloads/v*/
 !landing/static/landing/downloads/v*/.gitkeep
