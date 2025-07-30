@@ -5,29 +5,45 @@ import os
 
 # Load once
 df = pd.read_excel(os.path.join(settings.BASE_DIR, "endo/data/pulp.xlsx"))
-# df = df[df['Possibility'] == 'Yes']  # Use only valid rules
 
 def calculate_diagnosis(answers: dict):
+    if answers.get("Chief complaint", "").strip().lower() == "no":
+        return {"skip_reason": "Chief complaint is No. Skipping diagnosis."}
+
+    selected_etiologies = answers.get("Etiology assessment", [])
+    if isinstance(selected_etiologies, str):
+        selected_etiologies = [selected_etiologies]
+
+    match_results = []
+
     for _, row in df.iterrows():
         match = True
-        for column in df.columns[5:]:  # Start from 'Cold Test'
-            rule_answer = row[column]
-            if pd.isna(rule_answer): # type: ignore
+
+        # If etiology is not 'Not sure', filter
+        if "Not sure" not in selected_etiologies:
+            if row["Etiology"] not in selected_etiologies:
                 continue
-            # Remove prefix like '1- ' or '2- ' before comparing
-            expected = rule_answer.split('- ', 1)[-1].strip()
+
+        for column in df.columns[4:13]:  # Q4 to Q13 columns
+            expected_values = [x.strip().split('- ')[-1] for x in str(row[column]).split(',') if pd.notna(x)]
             user_answer = answers.get(column.strip(), '').strip()
-            if expected != user_answer:
+            if user_answer and user_answer not in expected_values:
                 match = False
                 break
+
         if match:
-            return {
+            match_results.append({
                 "pulp_diagnosis": row["Pulp Dx"],
-                "periapical_disease": row["Periapical Disease"],
+                "periapical_diagnosis": row["Periapical Dx"],
                 "etiology": row["Etiology"]
-            }
-    return {
-        "pulp_diagnosis": "Test goes wrong! it doesn't match with the logic!",
-        "periapical_disease": "Test goes wrong! it doesn't match with the logic!",
-        "etiology": "Test goes wrong! it doesn't match with the logic!"
-    }
+            })
+
+    if not match_results:
+        return {"results": [{
+                "pulp_diagnosis": "Not possible to determine",
+                "periapical_diagnosis": "Not possible to determine",
+                "etiology": "Not possible to determine"
+            }]}
+
+    return {"results": match_results}
+
