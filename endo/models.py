@@ -72,6 +72,7 @@ class VisitHistory(models.Model):
     pulp_diagnosis = models.CharField(max_length=100, null=True, blank=True)
     periapical_disease = models.CharField(max_length=100, null=True, blank=True)
     etiology = models.CharField(max_length=100, null=True, blank=True)
+    results = models.JSONField(default=list, blank=True)
     case_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
     
     def __str__(self):

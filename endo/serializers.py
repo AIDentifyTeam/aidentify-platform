@@ -1,10 +1,13 @@
 # endo/serializers/auth.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .diagnosis_engine import calculate_diagnosis
+
+from endo.diagnosis_engine import DiagnosisEngine
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
+from endo.utils import clean_json
 
 Doctor = get_user_model()
+diagnosis_engine = DiagnosisEngine("endo/data/pulp.xlsx")
 
 class DoctorRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -59,23 +62,29 @@ class PatientSerializer(serializers.ModelSerializer):
             validated_data['doctor'] = request.user
         return super().create(validated_data)
     
-class VisitHistorySerializer(serializers.ModelSerializer):
+class VisitHistorySerializer(serializers.ModelSerializer):   
     class Meta:
         model = VisitHistory
         fields = '__all__'
-        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology', 'case_id']
+        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology', 'case_id', 'results']
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['doctor'] = request.user
+        answers = validated_data.get("answers", {})
+        diagnoses = diagnosis_engine.diagnose(answers)
+        diagnoses = clean_json(diagnoses)
 
-        # Run placeholder logic to populate calculated fields
-        answers = validated_data.get('answers', {})
-        diagnoses = calculate_diagnosis(answers)
-        validated_data.update(diagnoses)
+        validated_data["results"] = diagnoses
+
+        if diagnoses and isinstance(diagnoses, list) and len(diagnoses) > 0:
+            first = diagnoses[0]
+            if isinstance(first, dict):
+                validated_data["pulp_diagnosis"] = first.get("pulp_diagnosis", "")
+                validated_data["periapical_disease"] = first.get("periapical_disease", "")
+                validated_data["etiology"] = first.get("etiology", "")
 
         return super().create(validated_data)
+
+
     
 class ResearchPaperSerializer(serializers.ModelSerializer):
     class Meta:
