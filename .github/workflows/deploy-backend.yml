@@ -38,13 +38,13 @@ jobs:
 
             # 2) Ensure SSH config is set to use aidentify_deploy key for GitHub
             mkdir -p ~/.ssh
-            cat > ~/.ssh/config <<'EOF'
-            Host github.com
-                HostName github.com
-                User git
-                IdentityFile ~/.ssh/aidentify_deploy
-                IdentitiesOnly yes
-            EOF
+            {
+              echo "Host github.com"
+              echo "    HostName github.com"
+              echo "    User git"
+              echo "    IdentityFile ~/.ssh/aidentify_deploy"
+              echo "    IdentitiesOnly yes"
+            } > ~/.ssh/config
             chmod 600 ~/.ssh/config
 
             # 3) Update code from main
