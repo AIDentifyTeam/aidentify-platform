@@ -90,9 +90,13 @@ class PatientViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         doctor = self.request.user
-        existing_count = Patient.objects.filter(doctor=doctor).count()
-        new_number = existing_count + 1
-        patient_id = f"D{doctor.id:04d}-P{new_number:06d}" # type: ignore
+        patient_id = serializer.validated_data.get('patient_id')
+
+        if not patient_id or str(patient_id).strip() == '':
+            existing_count = Patient.objects.filter(doctor=doctor).count()
+            new_number = existing_count + 1
+            patient_id = f"D{doctor.id:04d}-P{new_number:06d}"  # type: ignore # keep old pattern
+
         serializer.save(doctor=doctor, patient_id=patient_id)
     
 class VisitHistoryViewSet(viewsets.ModelViewSet):

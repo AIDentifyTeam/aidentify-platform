@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import BaseUserManager
+from django.db.models import Q
 
 class DoctorManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -40,26 +41,53 @@ class Doctor(AbstractUser):
         return f"{self.first_name} {self.last_name}"
     
 class Patient(models.Model):
-    doctor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='patients')
+    class Sex(models.TextChoices):
+        MALE = "Male", "Male"
+        FEMALE = "Female", "Female"
+        OTHER = "Other", "Other"
+
+    doctor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='patients'
+    )
+
+    # Required
     first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    birth_date = models.DateField()
-    phone = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)
+    last_name  = models.CharField(max_length=100)
+
+    # Optional
+    birth_date = models.DateField(blank=True, null=True)
+    phone      = models.CharField(max_length=20, blank=True, null=True)
+    email      = models.EmailField(blank=True, null=True)
+    sex        = models.CharField(max_length=10, choices=Sex.choices, blank=True, null=True)
+
+    # Optional clinic system ID entered by doctor
+    patient_id = models.CharField(max_length=20, blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True) 
-    patient_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            # Uniqueness only when patient_id is present, and scoped to the doctor
+            models.UniqueConstraint(
+                fields=['doctor', 'patient_id'],
+                condition=Q(patient_id__isnull=False),
+                name='uniq_patient_id_per_doctor'
+            )
+        ]
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
     def age(self):
         from datetime import date
+        if not self.birth_date:
+            return None
         today = date.today()
-        return (
-            today.year - self.birth_date.year -
-            ((today.month, today.day) < (self.birth_date.month, self.birth_date.day))
-        )
+        return (today.year - self.birth_date.year
+                - ((today.month, today.day) < (self.birth_date.month, self.birth_date.day)))
         
 
 class VisitHistory(models.Model):

@@ -5,9 +5,16 @@ from django.contrib.auth import get_user_model
 from endo.diagnosis_engine import DiagnosisEngine
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
 from endo.utils import clean_json
+from django.core.validators import RegexValidator
 
 Doctor = get_user_model()
 diagnosis_engine = DiagnosisEngine("endo/data/pulp.xlsx")
+
+
+phone_validator = RegexValidator(
+    regex=r'^[0-9+\-() ]{7,}$',
+    message="Failed to create new patient, please enter a valid phone number/email."
+)
 
 class DoctorRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -41,6 +48,10 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'email'] 
         
 class PatientSerializer(serializers.ModelSerializer):
+    patient_id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
+
     class Meta:
         model = Patient
         fields = [
@@ -54,13 +65,15 @@ class PatientSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at', 'patient_id']
+        read_only_fields = ['created_at', 'updated_at']  # <-- removed patient_id from here
 
     def create(self, validated_data):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             validated_data['doctor'] = request.user
         return super().create(validated_data)
+
+
     
 class VisitHistorySerializer(serializers.ModelSerializer):   
     class Meta:
