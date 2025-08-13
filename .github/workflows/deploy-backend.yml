@@ -10,6 +10,7 @@ on:
       - "staticfiles/**"
       - "requirements.txt"
       - "manage.py"
+      - ".github/**"
   workflow_dispatch: {}   # manual deploy option
 
 concurrency:
