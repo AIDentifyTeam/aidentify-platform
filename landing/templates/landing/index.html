@@ -23,50 +23,48 @@
 
   <div class="release-note">
     <strong>EndoApp Release Note:</strong><br />
-    Version 0.2.0 Peanut (Beta) released.<br />
-    You can download from the links below:
+    Version <strong>0.2.1</strong> Peanut (Beta) released.<br />
+    You can access the web app from the link below:
   </div>
+
   <!-- Icon Buttons -->
-<div class="platform-icons d-flex flex-wrap gap-3 justify-content-center">
-  <!-- Windows -->
-  <a href="{% static 'landing/downloads/v0.2.0/EndoApp-v0.2.0-windows.zip' %}" class="text-decoration-none">
-    <div class="d-inline-flex align-items-center justify-content-center rounded bg-primary text-white"
-        style="width: 64px; height: 64px;">
+  <div class="platform-icons d-flex flex-wrap gap-3 justify-content-center">
+    <!-- Windows (Disabled) -->
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-secondary text-white opacity-50"
+         style="width: 64px; height: 64px; cursor: not-allowed;"
+         title="Coming soon">
       <i class="fab fa-windows fa-2x"></i>
     </div>
-  </a>
 
-  <!-- Android -->
-  <a href="{% static 'landing/downloads/v0.2.0/EndoApp-v0.2.0.apk' %}" class="text-decoration-none">
-    <div class="d-inline-flex align-items-center justify-content-center rounded bg-success text-white"
-        style="width: 64px; height: 64px;">
+    <!-- Android (Disabled) -->
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-secondary text-white opacity-50"
+         style="width: 64px; height: 64px; cursor: not-allowed;"
+         title="Coming soon">
       <i class="bi bi-android2" style="font-size: 32px;"></i>
     </div>
-  </a>
 
-  <!-- macOS -->
-  <a href="{% static 'landing/downloads/v0.2.0/EndoApp-v0.2.0.dmg' %}" class="text-decoration-none">
-    <div class="d-inline-flex align-items-center justify-content-center rounded bg-secondary text-white"
-        style="width: 64px; height: 64px;">
+    <!-- macOS (Disabled) -->
+    <div class="d-inline-flex align-items-center justify-content-center rounded bg-secondary text-white opacity-50"
+         style="width: 64px; height: 64px; cursor: not-allowed;"
+         title="Coming soon">
       <i class="fab fa-apple fa-2x"></i>
     </div>
-  </a>
 
-  <!-- Web -->
-  <a href="https://app.aidentify.app" class="text-decoration-none">
-    <div class="d-inline-flex align-items-center justify-content-center rounded bg-danger text-white"
-        style="width: 64px; height: 64px;">
-      <i class="fas fa-globe fa-2x"></i>
-    </div>
-  </a>
+    <!-- Web (Enabled) -->
+    <a href="https://app.aidentify.app" class="text-decoration-none">
+      <div class="d-inline-flex align-items-center justify-content-center rounded bg-danger text-white"
+           style="width: 64px; height: 64px;">
+        <i class="fas fa-globe fa-2x"></i>
+      </div>
+    </a>
+  </div>
+
+  <!-- Support line -->
+  <p class="mt-4 text-white text-center" style="font-size: 0.95rem;">
+    If you have any ideas, email us at <a href="mailto:support@aidentify.app" class="text-info">support@aidentify.app</a>
+  </p>
 </div>
-
-<!-- Support line -->
-<p class="mt-4 text-white text-center" style="font-size: 0.95rem;">
-  If you have any ideas, email us at <a href="mailto:support@aidentify.app" class="text-info">support@aidentify.app</a>
-</p>
-</div>  
-  <footer>© AIdentify 2025 – All rights reserved.</footer>
+<footer>© AIdentify 2025 – All rights reserved.</footer>
 <script src="{% static 'landing/js/script.js' %}"></script>
 </body>
 </html>
