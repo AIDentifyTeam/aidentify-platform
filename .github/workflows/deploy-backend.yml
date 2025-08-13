@@ -1,0 +1,75 @@
+name: Deploy Backend (Django)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "core/**"
+      - "endo/**"
+      - "landing/**"
+      - "staticfiles/**"
+      - "requirements.txt"
+      - "manage.py"
+  workflow_dispatch: {}   # manual deploy option
+
+concurrency:
+  group: deploy-backend-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            # 1) Go to project directory
+            cd "${{ secrets.PROJECT_DIR }}"
+
+            # 2) Ensure SSH config is set to use aidentify_deploy key for GitHub
+            mkdir -p ~/.ssh
+            cat > ~/.ssh/config <<'EOF'
+            Host github.com
+                HostName github.com
+                User git
+                IdentityFile ~/.ssh/aidentify_deploy
+                IdentitiesOnly yes
+            EOF
+            chmod 600 ~/.ssh/config
+
+            # 3) Update code from main
+            git fetch --all --tags
+            git reset --hard origin/main
+
+            # 4) Activate venv
+            if [ ! -d "${{ secrets.VENV_DIR }}" ]; then
+              python3 -m venv "${{ secrets.VENV_DIR }}"
+            fi
+            . "${{ secrets.VENV_DIR }}/bin/activate"
+
+            # 5) Install/upgrade dependencies
+            pip install --upgrade pip wheel
+            pip install -r requirements.txt
+
+            # 6) Django housekeeping
+            python manage.py migrate --noinput
+            python manage.py collectstatic --noinput
+
+            # 7) Restart application server
+            sudo systemctl restart "${{ secrets.GUNICORN_SERVICE }}"
+            if systemctl is-active --quiet nginx; then
+              sudo systemctl reload nginx
+            fi
+
+            # 8) Show gunicorn status
+            systemctl --no-pager --full status "${{ secrets.GUNICORN_SERVICE }}" | head -n 20
