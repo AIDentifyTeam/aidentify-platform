@@ -100,7 +100,7 @@ class PatientViewSet(viewsets.ModelViewSet):
         serializer.save(doctor=doctor, patient_id=patient_id)
         
 class EtiologyAvailabilityView(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         ser = EtiologyAvailabilityIn(data=request.data)
