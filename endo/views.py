@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
-from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer
+from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, EtiologyAvailabilityIn, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer, diagnosis_engine
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -98,6 +98,22 @@ class PatientViewSet(viewsets.ModelViewSet):
             patient_id = f"D{doctor.id:04d}-P{new_number:06d}"  # type: ignore # keep old pattern
 
         serializer.save(doctor=doctor, patient_id=patient_id)
+        
+class EtiologyAvailabilityView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ser = EtiologyAvailabilityIn(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        page1 = ser.validated_data["answers"] # type: ignore
+        engine = diagnosis_engine  # use this if you import a singleton
+
+        choices = engine.etiology_choices_from_page1(page1)
+        return Response(
+            {"etiologies": choices, "ruleset_version": engine.version},
+            status=200,
+        )
     
 class VisitHistoryViewSet(viewsets.ModelViewSet):
     queryset = VisitHistory.objects.all()

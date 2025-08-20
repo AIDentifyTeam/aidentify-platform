@@ -97,7 +97,22 @@ class VisitHistorySerializer(serializers.ModelSerializer):
 
         return super().create(validated_data)
 
+class EtiologyAvailabilityIn(serializers.Serializer):
+    # Page-1 answers only (P..X). Values are strings like "Yes", "No", etc.
+    answers = serializers.DictField(
+        child=serializers.CharField(allow_blank=False, trim_whitespace=True),
+        required=True,
+    )
 
+    # Optional: reject unknown keys early (remove if you want to allow anything)
+    def validate_answers(self, value):
+        allowed = {"P", "Q", "R", "S", "T", "U", "V", "W", "X", "chief_complaint"}
+        unknown = set(value.keys()) - allowed
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unknown question id(s): {', '.join(sorted(unknown))}"
+            )
+        return value
     
 class ResearchPaperSerializer(serializers.ModelSerializer):
     class Meta:
