@@ -83,8 +83,7 @@ class VisitHistorySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         answers = validated_data.get("answers", {})
-        diagnosis = diagnosis_engine.diagnose(answers)
-        diagnosis = clean_json(diagnosis)
+        diagnosis = clean_json(diagnosis_engine.diagnose(answers))
         validated_data["results"] = diagnosis
 
         if diagnosis and isinstance(diagnosis, list) and len(diagnosis) > 0:
