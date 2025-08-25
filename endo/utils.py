@@ -1,6 +1,5 @@
 import math
 
-
 def clean_json(obj):
     if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
         return ""
@@ -9,3 +8,5 @@ def clean_json(obj):
     if isinstance(obj, list):
         return [clean_json(x) for x in obj]
     return obj
+
+
