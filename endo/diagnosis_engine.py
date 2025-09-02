@@ -37,6 +37,7 @@ FIELD_ID_TO_COL = {
     "J": "Bite Test",
     "K": "Fluctuant Swelling",
     "L": "Sinus Tract",
+    "N": "Periapical status"
 }
 
 # History columns used for “Endodontic Treatment History”
@@ -60,7 +61,6 @@ class DiagnosisEngine:
       • Return unique etiologies (sorted).
 
     Final diagnose(answers)
-      • If Chief Complaint == "No" → return [].
       • History must match (Previously treated / initiated / none).
       • Etiology filter:
           - If user selected specific etiologies (and not "Not sure"), only rows whose Etiology contains

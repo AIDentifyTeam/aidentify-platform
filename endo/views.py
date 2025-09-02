@@ -4,9 +4,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
+from endo.permissions import IsVisitOwnerOrStaff
 from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, EtiologyAvailabilityIn, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer, diagnosis_engine
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 
 class RegisterDoctorView(APIView):
     def post(self, request):
@@ -118,7 +120,8 @@ class EtiologyAvailabilityView(APIView):
 class VisitHistoryViewSet(viewsets.ModelViewSet):
     queryset = VisitHistory.objects.all()
     serializer_class = VisitHistorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsVisitOwnerOrStaff]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):  # type: ignore
         queryset = VisitHistory.objects.filter(doctor=self.request.user)
@@ -130,14 +133,15 @@ class VisitHistoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         patient = serializer.validated_data['patient']
 
-        # Count previous visits of this patient
+        # block creating visits for other doctors' patients (unless staff)
+        if not self.request.user.is_staff and patient.doctor_id != self.request.user.id: # type: ignore
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only create visits for your own patients.")
+
         visit_count = VisitHistory.objects.filter(patient=patient).count()
         new_case_number = visit_count + 1
-
-        # Create the case_id: PIDxxxxxxx-CIDxxxxxxx
         case_id = f"{patient.patient_id}-CID{new_case_number:07d}"
 
-        # Save the visit with case_id and the doctor
         serializer.save(doctor=self.request.user, case_id=case_id)
     
 class ResearchPaperViewSet(viewsets.ReadOnlyModelViewSet):

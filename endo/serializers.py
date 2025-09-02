@@ -74,26 +74,74 @@ class PatientSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-    
-class VisitHistorySerializer(serializers.ModelSerializer):   
+class VisitHistorySerializer(serializers.ModelSerializer):
+    # Optional helper to clear image via PATCH {"remove_tooth_image": true}
+    remove_tooth_image = serializers.BooleanField(write_only=True, required=False, default=False)
+
     class Meta:
         model = VisitHistory
         fields = '__all__'
-        read_only_fields = ['doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease', 'etiology', 'case_id', 'results']
+        read_only_fields = [
+            'doctor', 'visit_date', 'pulp_diagnosis', 'periapical_disease',
+            'etiology', 'case_id', 'results'
+        ]
+
+    def _apply_diagnosis_to_dict(self, data: dict) -> None:
+        answers = data.get("answers", {}) or {}
+        dx = clean_json(diagnosis_engine.diagnose(answers))
+        data["results"] = dx
+        if dx and isinstance(dx, list) and dx and isinstance(dx[0], dict):
+            first = dx[0]
+            data["pulp_diagnosis"] = first.get("pulp_diagnosis", "")
+            data["periapical_disease"] = first.get("periapical_disease", "")
+            data["etiology"] = first.get("etiology", "")
+        else:
+            data["pulp_diagnosis"] = ""
+            data["periapical_disease"] = ""
+            data["etiology"] = ""
+
+    def _apply_diagnosis_to_instance(self, instance: VisitHistory) -> None:
+        dx = clean_json(diagnosis_engine.diagnose(instance.answers or {}))
+        instance.results = dx
+        if dx and isinstance(dx, list) and dx and isinstance(dx[0], dict):
+            first = dx[0]
+            instance.pulp_diagnosis = first.get("pulp_diagnosis", "") # type: ignore
+            instance.periapical_disease = first.get("periapical_disease", "") # type: ignore
+            instance.etiology = first.get("etiology", "") # type: ignore
+        else:
+            instance.pulp_diagnosis = ""
+            instance.periapical_disease = ""
+            instance.etiology = ""
 
     def create(self, validated_data):
-        answers = validated_data.get("answers", {})
-        diagnosis = clean_json(diagnosis_engine.diagnose(answers))
-        validated_data["results"] = diagnosis
-
-        if diagnosis and isinstance(diagnosis, list) and len(diagnosis) > 0:
-            first = diagnosis[0]
-            if isinstance(first, dict):
-                validated_data["pulp_diagnosis"] = first.get("pulp_diagnosis", "")
-                validated_data["periapical_disease"] = first.get("periapical_disease", "")
-                validated_data["etiology"] = first.get("etiology", "")
-
+        validated_data.pop("remove_tooth_image", None)
+        self._apply_diagnosis_to_dict(validated_data)
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # forbid changing patient on an existing visit
+        if "patient" in validated_data and validated_data["patient"].id != instance.patient_id:
+            raise serializers.ValidationError({"patient": "Cannot change patient of an existing visit."})
+
+        # handle optional image removal flag
+        if validated_data.pop("remove_tooth_image", False):
+            if instance.tooth_image:
+                instance.tooth_image.delete(save=False)
+            instance.tooth_image = None
+
+        # detect whether answers changed; if not provided, keep current
+        answers_changed = "answers" in validated_data
+
+        # perform the base update (writes answers/tooth_number/etc.)
+        instance = super().update(instance, validated_data)
+
+        # recompute diagnosis when answers changed (or always, if you prefer)
+        if answers_changed:
+          self._apply_diagnosis_to_instance(instance)
+          instance.save(update_fields=["results","pulp_diagnosis","periapical_disease","etiology"])
+
+        return instance
+
 
 class EtiologyAvailabilityIn(serializers.Serializer):
     # Page-1 answers only (P..X). Values are strings like "Yes", "No", etc.
