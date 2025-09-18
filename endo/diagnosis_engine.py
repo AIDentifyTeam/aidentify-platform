@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Set
-from .ai_fallback import gemini_fallback
+from endo.ai_fallback import gemini_fallback
 import pandas as pd
 
 pd.set_option("display.max_rows", None)
