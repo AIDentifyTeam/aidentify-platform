@@ -3,8 +3,8 @@ import os
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Iterable, List, Set
-
+from typing import Dict, List, Set
+from endo.ai_fallback import gemini_fallback
 import pandas as pd
 
 pd.set_option("display.max_rows", None)
@@ -18,12 +18,11 @@ PAGE1_ID_TO_COL = {
     "P": "Do you have/experienced a toothache?",
     "Q": "Does cold temperature trigger/aggravate the pain?",
     "R": "Does cold temperature alleviate the pain?",
-    "S": "Does biting/chewing trigger/aggravate the pain?",
-    "T": "Are you able to function (bite or chew) on the painful side?",
-    "U": "Do you experience spontaneous pain?",
-    "V": "Does the pain wake you up at night or interfere with sleep?",
-    "W": "Does the pain have any of the following qualities:",
-    "X": "Do you also feel the pain in other areas like jawbone, ear, or\n"
+    "S": "Does biting/chewing trigger/aggravate the pain? Are you incapable of functioning (biting or chewing) on the painful side?",
+    "T": "Do you experience spontaneous pain?",
+    "U": "Does the pain wake you up at night or interfere with sleep?",
+    "V": "Does the pain have any of the following qualities:",
+    "W": "Do you also feel the pain in other areas like jawbone, ear, or\n"
         "temple, or eye, or cheek?",
 }
 
@@ -226,3 +225,19 @@ class DiagnosisEngine:
 
         return results
 
+    def run(self, answers: Dict[str, object], use_ai_fallback: bool = True):
+        """
+        Unified entrypoint. Uses rules engine first; if empty and fallback is enabled,
+        calls Gemini and returns a standard shape for the API/UI.
+        """
+        results = self.diagnose(answers)  # your existing method
+        if results:
+            return {"source": "rules_engine", "engine_version": self.version, "results": results}
+
+        if not use_ai_fallback:
+            return {"source": "rules_engine", "engine_version": self.version, "results": []}
+
+        ai = gemini_fallback(answers, self.version) # type: ignore
+        if ai:
+            return {"source": "ai_fallback_gemini", "engine_version": self.version, "ai": ai}
+        return {"source": "none", "engine_version": self.version, "results": []}

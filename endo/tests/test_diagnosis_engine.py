@@ -8,6 +8,7 @@ from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
 from django.contrib.auth import get_user_model
+from core.settings import EXCEL_CORE_PATH
 from endo.models import Patient, VisitHistory
 from endo.diagnosis_engine import DiagnosisEngine
 
@@ -83,7 +84,7 @@ class DiagnosisEngineFlatRowTests(SimpleTestCase):
         # Resolve Excel path robustly
         base = Path(getattr(settings, "BASE_DIR", Path.cwd()))
         # Adjust if your xlsx lives somewhere else:
-        xlsx = base / "endo" / "data" / "pulp.xlsx"
+        xlsx = base / EXCEL_CORE_PATH
         cls.engine = DiagnosisEngine(str(xlsx))
 
     def setUp(self):
