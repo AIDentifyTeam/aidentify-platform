@@ -110,7 +110,6 @@ class VisitHistorySerializer(serializers.ModelSerializer):
     def _apply_diagnosis_to_dict(self, data: dict) -> None:
         answers = data.get("answers", {}) or {}
         dx = diagnosis_engine.run(answers, use_ai_fallback=True)
-        print("RESULT:", dx)
         self._apply_dx_result_dict(data, dx)
 
     def _apply_diagnosis_to_instance(self, instance: VisitHistory) -> None:
