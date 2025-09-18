@@ -18,21 +18,63 @@ _SCHEMA = """
 """.strip()
 
 def _prompt(answers: Dict[str, str], engine_version: str) -> str:
-    # Keep it short and deterministic; JSON-only output.
-    lines = [
+    """
+    Build a prompt that asks Gemini to produce a compact, human-readable
+    contradiction/explanation + suggestions in the exact +/- template.
+
+    IMPORTANT: This version no longer asks for JSON. Your caller should treat
+    the model output as plain text (no json.loads).
+    """
+    lines: list[str] = []
+
+    # Role + task
+    lines += [
         "System: You are an endodontic decision-support assistant.",
-        "Do NOT give definitive diagnoses. Provide differentials, next-step tests, and red flags.",
-        "Output MUST be raw JSON exactly matching the schema. No markdown, no code fences.",
+        "Task: Our endodontic diagnostic app (a comprehensive decision tree of all plausible scenarios) "
+        "returned NO diagnosis for the following case. Identify, in ONE concise sentence, the core reason "
+        "the evaluation appears invalid or internally inconsistent by citing SPECIFIC tests/results that "
+        "contradict each other. Then provide two short actionable suggestions.",
         "",
-        "Schema:", _SCHEMA, "",
-        f"Rules engine returned no matches. Engine version: {engine_version}.",
-        "Patient questionnaire (compact keys like P..X, E..L, history, etiology):",
+        "Critical rules:",
+        "- Do NOT give a definitive diagnosis.",
+        "- Focus on contradictions/inconsistencies among clinical/subj. findings.",
+        "- Ignore 'Chief Complaint' and 'Toothache' for contradiction purposes (they are general).",
+        "- Keep the reason to ONE sentence and as short as possible.",
+        "- Use EXACT output template below (quotes and plus signs included).",
+        "- No extra commentary before or after the template; no markdown/code fences.",
+        "",
+        "Allowed test names to reference verbatim (choose those that apply):",
+        "Cold Test, Heat Test, EPT, Palpation, Percussion, Bite Test, Swelling, Sinus Tract, Radiographic Findings, PDL widening, Etiology Assessment, Endodontic Treatment History, Pain quality, Referred pain, Sleep impact, Spontaneous pain.",
+        "",
+        "Exact OUTPUT TEMPLATE (must match exactly):",
+        '+ "The case evaluation isn\'t valid because the ..[specific test(s) and corresponding results].. contradict the ..[specific test(s) and corresponding results].."',
+        "",
+        '+ "You should either:',
+        '++ Evaluate other teeth',
+        '++ Evaluate the teeth again by doing the ...[specific test]... again"',
+        "",
+        "Notes:",
+        "- Replace the bracketed parts with concrete, specific contradictions and a concrete test to repeat (e.g., Cold Test, Percussion, Bite Test, EPT, or Radiographic assessment).",
+        "- Keep everything brief and clinical. No hedging language or extra sentences.",
+        "",
+        f"Engine version: {engine_version}",
+        "",
+        "Case evaluation (verbatim key-value pairs):",
     ]
+
+    # Include all answers verbatim so the model can spot contradictions
     for k, v in (answers or {}).items():
         lines.append(f"- {k}: {v}")
-    lines.append("")
-    lines.append("Reply with JSON only.")
+
+    # Final hard stop instruction
+    lines += [
+        "",
+        "Output ONLY the exact template lines above with your filled-in content. "
+        "Do not add any other lines, bullets, or text."
+    ]
+
     return "\n".join(lines)
+
 
 def gemini_fallback(answers: Dict[str, str], engine_version: str) -> Optional[Dict]:
     """Call Gemini and return parsed JSON; return None on any failure."""
