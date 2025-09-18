@@ -1,5 +1,6 @@
 # endo/ai_fallback.py
 from __future__ import annotations
+import re
 from typing import Dict, Optional
 from django.conf import settings
 import google.generativeai as genai
@@ -9,40 +10,51 @@ logger = logging.getLogger(__name__)
 _MODEL = getattr(settings, "GEMINI_MODEL_NAME", "gemini-2.0-flash")
 
 def _sanitize_ai_text(raw: str) -> str:
-    """
-    Keep only the lines that belong to the required template:
-      + "The case evaluation isn't valid because ..."
-      + "You should either:
-      ++ Evaluate other teeth
-      ++ Evaluate the teeth again by doing the ... again"
-    Strip anything before the first '+' line and drop empty noise.
-    """
     if not raw:
         return ""
-    # tolerate accidental code fences or prefixes
-    raw = raw.strip().strip("`").replace("\r\n", "\n").strip()
+    raw = raw.replace("\r\n", "\n").strip("`").strip()
     lines = [ln.rstrip() for ln in raw.split("\n")]
 
-    # drop lines until the first that starts with '+'
-    out = []
-    started = False
+    kept = []
     for ln in lines:
-        if not started and ln.lstrip().startswith("+"):
-            started = True
-        if started:
-            # keep only + / ++ lines (and closing quote mismatches are okay)
-            if ln.lstrip().startswith("+"):
-                out.append(ln.strip())
-            # stop if model started rambling beyond template
-            elif out:
-                break
-    # join back
-    text = "\n".join(out).strip()
-    # final guard: ensure it contains at least the two required blocks
-    if not text.startswith('+ "The case evaluation'):
-        logger.info("AI text did not match expected template; returning raw fallback")
-        return raw
+        s = ln.strip()
+        if s.startswith("+ "):     # both + and ++ pass this
+            kept.append(s)
+
+    # If nothing matched, return raw (better than empty)
+    if not kept:
+        return raw.strip()
+
+    # Join kept lines exactly; ensure there are at least the required blocks
+    text = "\n".join(kept).strip()
     return text
+
+def _ensure_two_blocks(text: str) -> str:
+    t = text.strip()
+    has_block1 = re.search(r'^\+\s*"The case evaluation isn\'t valid because .*"$', t, re.M) is not None
+    has_block2 = (
+        re.search(r'^\+\s*"You should either:\s*$', t, re.M) and
+        re.search(r'^\+\+\s*Evaluate other teeth\s*$', t, re.M) and
+        re.search(r'^\+\+\s*Evaluate the teeth again by doing the .* again"$', t, re.M)
+    )
+    if has_block1 and has_block2:
+        return t
+
+    # Append missing second block using a guessed test name from block1
+    test = "Percussion" if "Percussion" in t else ("Cold Test" if "Cold Test" in t else "Bite Test")
+    lines = []
+    if has_block1:
+        # keep the existing contradiction line(s)
+        m = re.search(r'^\+\s*"The case evaluation isn\'t valid because .*$"', t, re.M)
+        if m:
+            lines.append(m.group(0))
+    else:
+        lines.append('+ "The case evaluation isn\'t valid because some clinical test results contradict each other."')
+    lines.append('')
+    lines.append('+ "You should either:')
+    lines.append('++ Evaluate other teeth')
+    lines.append(f'++ Evaluate the teeth again by doing the {test} again"')
+    return "\n".join(lines)
 
 
 def _prompt(answers: Dict[str, str], engine_version: str) -> str:
@@ -72,12 +84,31 @@ def _prompt(answers: Dict[str, str], engine_version: str) -> str:
     lines.append("Output ONLY the two blocks above. Do not add anything else.")
     return "\n".join(lines)
 
+def _resp_text(resp) -> str:
+    """
+    Join all text from the top candidate's parts.
+    Falls back gracefully if structure differs.
+    """
+    try:
+        cand = resp.candidates[0]
+    except Exception:
+        return ""
+    out = []
+    try:
+        for p in getattr(cand.content, "parts", []) or []:
+            t = getattr(p, "text", "")
+            if t:
+                out.append(t)
+    except Exception:
+        pass
+    # Some SDK versions also expose resp.text
+    if not out:
+        t = getattr(resp, "text", "")
+        if t:
+            out = [t]
+    return "\n".join(out).strip()
 
 def gemini_fallback(answers: dict, engine_version: str) -> Optional[str]:
-    """
-    Call Gemini and return the plain text (Ramtin template).
-    Return None on any failure.
-    """
     api_key = getattr(settings, "GOOGLE_GEMINI_API_KEY", "")
     if not api_key or genai is None:
         return None
@@ -88,10 +119,19 @@ def gemini_fallback(answers: dict, engine_version: str) -> Optional[str]:
             _prompt(answers, engine_version),
             generation_config={"temperature": 0.2, "top_p": 0.9, "max_output_tokens": 400}, # type: ignore
         )
-        text = (resp.candidates[0].content.parts[0].text or "").strip()
-        # Tolerate ```json fences, accidental "TEXT + " prefixes, etc.
-        text = text.replace("TEXT ", "", 1) if text.startswith("TEXT ") else text
-        return _sanitize_ai_text(text)
+
+        text = _resp_text(resp)
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+        if text.startswith("TEXT "):
+            text = text[5:].lstrip()
+
+        text = _sanitize_ai_text(text)
+        text = _ensure_two_blocks(text)
+        return text or None
+
     except Exception:
         logger.exception("Gemini fallback failed")
         return None
