@@ -17,6 +17,7 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+VERSION = "v0.2.6"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -159,7 +160,7 @@ REST_FRAMEWORK = {
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 GOOGLE_GEMINI_API_KEY = 'AIzaSyDmL0YWlUvcrM3rkK-1_u4TOX5v9bY-GBA'
-GEMINI_MODEL_NAME = "gemini-1.5-pro"
+GEMINI_MODEL_NAME = "gemini-2.0-flash"
 
 ###
 EXCEL_CORE_PATH = "endo/data/pulp_v0.2.6.xlsx"
