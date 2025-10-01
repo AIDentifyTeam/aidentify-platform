@@ -1,10 +1,10 @@
 # endo/diagnosis_engine.py
 import os
 import re
-from pathlib import Path
+from collections import OrderedDict
 from datetime import datetime
-from typing import Dict, List, Set
-from endo.ai_fallback import gemini_fallback
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 import pandas as pd
 
 pd.set_option("display.max_rows", None)
@@ -18,12 +18,18 @@ PAGE1_ID_TO_COL = {
     "P": "Do you have/experienced a toothache?",
     "Q": "Does cold temperature trigger/aggravate the pain?",
     "R": "Does cold temperature alleviate the pain?",
-    "S": "Does biting/chewing trigger/aggravate the pain? Are you incapable of functioning (biting or chewing) on the painful side?",
-    "T": "Do you experience spontaneous pain?",
-    "U": "Does the pain wake you up at night or interfere with sleep?",
-    "V": "Does the pain have any of the following qualities:",
-    "W": "Do you also feel the pain in other areas like jawbone, ear, or\n"
+    "S": "Does biting/chewing trigger/aggravate the pain?",
+    "T": "Are you able to function (bite or chew) on the painful side?",
+    "U": "Do you experience spontaneous pain?",
+    "V": "Does the pain wake you up at night or interfere with sleep?",
+    "W": "Does the pain have any of the following qualities:",
+    "X": "Do you also feel the pain in other areas like jawbone, ear, or\n"
         "temple, or eye, or cheek?",
+}
+
+PAIN_QUALITY_COLUMN = "Does the pain have any of the following qualities:"
+PAIN_QUALITY_QIDS = {
+    qid for qid, col in PAGE1_ID_TO_COL.items() if col == PAIN_QUALITY_COLUMN
 }
 
 # Clinical / Radiographic — IDs E..L
@@ -131,15 +137,124 @@ class DiagnosisEngine:
         """Split etiology cell like 'Caries, Trauma' -> {'caries','trauma'} (lower)."""
         return DiagnosisEngine._cell_tokens(cell)
 
+    def _etiology_display_tokens(self, cell: object) -> List[str]:
+        """Return cleaned etiology names with original casing preserved when known."""
+        tokens: List[str] = []
+        s = str(cell or "")
+        if not s or s.lower() == "nan":
+            return tokens
+
+        parts = [p.strip() for p in s.split(",") if p.strip()]
+        for part in parts:
+            cleaned = re.sub(r"^\s*\d+\s*-\s*", "", part).strip()
+            if not cleaned:
+                continue
+            lower = cleaned.lower()
+            tokens.append(self._etiology_name_by_lower.get(lower, cleaned))
+
+        return tokens
+
+    def _format_grouped_results(self, results: List[Dict[str, str]]) -> List[Dict[str, object]]:
+        """Merge duplicate pulp/periapical rows and add a combined etiology sentence."""
+        grouped: "OrderedDict[Tuple[str, str], Dict[str, Any]]" = OrderedDict()
+
+        for entry in results:
+            pulp = str(entry.get("pulp_diagnosis", "")).strip()
+            periapical = str(entry.get("periapical_disease", "")).strip()
+            key = (pulp, periapical)
+            bucket = grouped.setdefault(
+                key,
+                {
+                    "pulp_diagnosis": pulp,
+                    "periapical_disease": periapical,
+                    "etiologies": [],
+                    "_seen": set(),
+                },
+            )
+
+            tokens = self._etiology_display_tokens(entry.get("etiology", ""))
+            if tokens:
+                seen: Set[str] = bucket["_seen"]
+                for token in tokens:
+                    lower = token.lower()
+                    if lower in seen:
+                        continue
+                    seen.add(lower)
+                    bucket["etiologies"].append(token)
+
+        formatted: List[Dict[str, object]] = []
+        for bucket in grouped.values():
+            etiologies: List[str] = bucket.get("etiologies", [])
+            sentence = "Possible etiologies: "
+            if etiologies:
+                sentence += ", ".join(etiologies)
+            else:
+                sentence += "Not specified"
+
+            etiology_list = list(etiologies)
+            formatted.append(
+                {
+                    "pulp_diagnosis": bucket["pulp_diagnosis"],
+                    "periapical_disease": bucket["periapical_disease"],
+                    "etiology": sentence,
+                    "etiology_list": etiology_list,
+                }
+            )
+
+        return formatted
+
+    def _rule_based_fallback(self, answers: Dict[str, object]) -> List[Dict[str, str]]:
+        """Apply additional diagnostic rules when sheet lookup returns nothing."""
+        pulp: Optional[str] = None
+        peri: Optional[str] = None
+
+        cold_test = self._norm(answers.get("E"))
+        if cold_test == "lingering pain":
+            pulp = "Symptomatic Irreversible Pulpitis"
+
+        swelling = self._norm(answers.get("K"))
+        sinus = self._norm(answers.get("L"))
+        if sinus == "positive":
+            if swelling == "positive":
+                peri = "Chronic Apical Abscess"
+            elif swelling == "negative":
+                peri = "Acute Apical Abscess"
+
+        if not pulp and not peri:
+            return []
+
+        return [
+            {
+                "pulp_diagnosis": pulp or "",
+                "periapical_disease": peri or "",
+                "etiology": "",
+            }
+        ]
+
     def _row_matches_page1(self, row: pd.Series, page1_answers: Dict[str, object]) -> bool:
         if not isinstance(page1_answers, dict):
             return True
         for qid, col in PAGE1_ID_TO_COL.items():
             if qid not in page1_answers:
                 continue
-            user_choice = self._norm(page1_answers[qid])
+            raw_value = page1_answers[qid]
+            if isinstance(raw_value, (list, tuple, set)):
+                user_tokens = {
+                    self._norm(val)
+                    for val in raw_value
+                    if val is not None and str(val).strip()
+                }
+            else:
+                user_choice = self._norm(raw_value)
+                user_tokens = {user_choice} if raw_value is not None else set()
+
+            is_pain_quality = (qid in PAIN_QUALITY_QIDS) or (col == PAIN_QUALITY_COLUMN)
+            if is_pain_quality:
+                if not user_tokens or "not defined" in user_tokens:
+                    continue
+
             tokens = self._cell_tokens(row.get(col, ""))
-            if tokens and user_choice not in tokens:
+            if tokens and not (user_tokens & tokens):
                 return False
         return True
 
@@ -208,8 +323,10 @@ class DiagnosisEngine:
                 ans = self._norm(answers[fid])
                 tokens = self._cell_tokens(row.get(col, ""))
                 if tokens and ans not in tokens:
-                    ok = False
-                    break
+                    # allow soft/partial semantic matches (e.g., "normal" vs "normal periapex")
+                    if not any(ans in t or t in ans for t in tokens):
+                        ok = False
+                        break
             if not ok:
                 continue
 
@@ -225,19 +342,32 @@ class DiagnosisEngine:
 
         return results
 
-    def run(self, answers: Dict[str, object], use_ai_fallback: bool = True):
+    def run(self, answers: Dict[str, object]):
         """
-        Unified entrypoint. Uses rules engine first; if empty and fallback is enabled,
-        calls Gemini and returns a standard shape for the API/UI.
+        Unified entrypoint returning rule-engine matches and heuristic overrides.
+        AI fallbacks are orchestrated by higher-level services.
         """
-        results = self.diagnose(answers)  # your existing method
-        if results:
-            return {"source": "rules_engine", "engine_version": self.version, "results": results}
+        answers = answers or {}
+        results_raw = self.diagnose(answers)
+        result_source = "rules_engine"
 
-        if not use_ai_fallback:
-            return {"source": "rules_engine", "engine_version": self.version, "results": []}
+        if not results_raw:
+            fallback_raw = self._rule_based_fallback(answers)
+            if fallback_raw:
+                results_raw = fallback_raw
+                result_source = "rule_override"
 
-        ai = gemini_fallback(answers, self.version) # type: ignore
-        if ai:
-            return {"source": "ai_fallback_gemini", "engine_version": self.version, "ai": ai}
-        return {"source": "none", "engine_version": self.version, "results": []}
+        formatted: List[Dict[str, object]] = []
+        if results_raw:
+            formatted = self._format_grouped_results(results_raw)
+
+        payload: Dict[str, object] = {
+            "source": "rules_engine" if formatted else "none",
+            "engine_version": self.version,
+            "results": formatted,
+        }
+
+        if formatted and result_source != "rules_engine":
+            payload["result_source"] = result_source
+
+        return payload

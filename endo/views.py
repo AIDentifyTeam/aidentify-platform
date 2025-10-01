@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
 from endo.permissions import IsVisitOwnerOrStaff
-from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, EtiologyAvailabilityIn, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer, diagnosis_engine
+from endo.serializers import DoctorProfileSerializer, DoctorRegisterSerializer, EtiologyAvailabilityIn, NotificationReadStatusSerializer, NotificationSerializer, PatientSerializer, ResearchPaperSerializer, VisitHistorySerializer
+from endo.diagnosis_service import diagnosis_engine
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
