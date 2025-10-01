@@ -2,16 +2,12 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from core.settings import EXCEL_CORE_PATH
-from endo.diagnosis_engine import DiagnosisEngine
+from endo.diagnosis_service import generate_diagnosis_payload
 from endo.models import Notification, NotificationReadStatus, Patient, ResearchPaper, VisitHistory
 from endo.utils import clean_json
 from django.core.validators import RegexValidator
 
 Doctor = get_user_model()
-diagnosis_engine = DiagnosisEngine(EXCEL_CORE_PATH)
-
-
 phone_validator = RegexValidator(
     regex=r'^[0-9+\-() ]{7,}$',
     message="Failed to create new patient, please enter a valid phone number/email."
@@ -94,7 +90,6 @@ class VisitHistorySerializer(serializers.ModelSerializer):
         iff rules_engine produced matches.
         """
         data["results"] = clean_json(dx)
-
         pulp = peri = etio = ""
         if isinstance(dx, dict) and dx.get("source") == "rules_engine":
             res = dx.get("results") or []
@@ -109,11 +104,20 @@ class VisitHistorySerializer(serializers.ModelSerializer):
 
     def _apply_diagnosis_to_dict(self, data: dict) -> None:
         answers = data.get("answers", {}) or {}
-        dx = diagnosis_engine.run(answers, use_ai_fallback=True)
+        tooth_num = data.get("tooth_number")
+        if tooth_num is not None:
+            answers = dict(answers)
+            answers.setdefault("tooth_number", tooth_num)
+            data["answers"] = answers
+        dx = generate_diagnosis_payload(answers, use_ai_fallback=True)
         self._apply_dx_result_dict(data, dx)
 
     def _apply_diagnosis_to_instance(self, instance: VisitHistory) -> None:
-        dx = diagnosis_engine.run(instance.answers or {}, use_ai_fallback=True)
+        ans = instance.answers or {}
+        if instance.tooth_number is not None:
+            ans = dict(ans)
+            ans.setdefault("tooth_number", instance.tooth_number)
+        dx = generate_diagnosis_payload(ans, use_ai_fallback=True) # type: ignore
         instance.results = clean_json(dx)
 
         # same mapping logic to top-level fields

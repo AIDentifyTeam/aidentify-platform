@@ -31,30 +31,9 @@ def _lower(x):
 
 
 # Match the engine’s mapping, including Radiographic (N)
-FIELD_ID_TO_COL = {
-    "E": "Cold Test",
-    "F": "Heat Test*",
-    "G": "EPT*",
-    "H": "Palpation",
-    "I": "Percussion",
-    "J": "Bite Test",
-    "K": "Fluctuant Swelling",
-    "L": "Sinus Tract",
-    "N": "Periapical status",
-}
+from endo.diagnosis_engine import FIELD_ID_TO_COL
 
-PAGE1_ID_TO_COL = {
-    "P": "Do you have/experienced a toothache?",
-    "Q": "Does cold temperature trigger/aggravate the pain?",
-    "R": "Does cold temperature alleviate the pain?",
-    "S": "Does biting/chewing trigger/aggravate the pain?",
-    "T": "Are you able to function (bite or chew) on the painful side?",
-    "U": "Do you experience spontaneous pain?",
-    "V": "Does the pain wake you up at night or interfere with sleep?",
-    "W": "Does the pain have any of the following qualities:",
-    "X": "Do you also feel the pain in other areas like jawbone, ear, or\n"
-         "temple, or eye, or cheek?",
-}
+from endo.diagnosis_engine import PAGE1_ID_TO_COL
 
 # Frontend-visible / friendly options (used only to pick a compatible value if needed)
 CLINICAL_OPTIONS = {
