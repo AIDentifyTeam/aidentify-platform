@@ -67,10 +67,10 @@ jobs:
             python manage.py collectstatic --noinput
 
             # 7) Restart application server
-            sudo systemctl restart "${{ secrets.GUNICORN_SERVICE }}"
+            sudo systemctl restart gunicorn
             if systemctl is-active --quiet nginx; then
               sudo systemctl reload nginx
             fi
 
             # 8) Show gunicorn status
-            systemctl --no-pager --full status "${{ secrets.GUNICORN_SERVICE }}" | head -n 20
+            systemctl --no-pager --full status gunicorn | head -n 20
