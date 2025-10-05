@@ -214,11 +214,11 @@ class DiagnosisEngine:
 
         swelling = self._norm(answers.get("K"))
         sinus = self._norm(answers.get("L"))
-        if sinus == "positive":
+        if sinus == "negative":
             if swelling == "positive":
-                peri = "Chronic Apical Abscess"
-            elif swelling == "negative":
                 peri = "Acute Apical Abscess"
+        elif sinus == "positive":
+                peri = "Chronic Apical Abscess"
 
         if not pulp and not peri:
             return []
