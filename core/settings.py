@@ -17,8 +17,8 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-VERSION = "v0.2.7"
-VERSION_NAME = "Peanut"
+VERSION = "v0.3.0"
+VERSION_NAME = "Strawberry"
 EXCEL_CORE_PATH = "endo/data/pulp_v0.2.7.xlsx"
 
 # Quick-start development settings - unsuitable for production
