@@ -16,14 +16,13 @@ from endo.diagnosis_engine import DiagnosisEngine
 # ====== Helpers (shared) ======
 
 def _tokens(cell) -> List[str]:
-    s = str(cell or "")
-    if not s or s.lower() == "nan":
-        return []
-    parts = [p.strip() for p in s.split(",") if p.strip()]
+    values = DiagnosisEngine._split_cell_values(cell)
     out = []
-    for p in parts:
-        q = re.sub(r"^\s*\d+\s*-\s*", "", p)
-        out.append(q.strip())
+    for val in values:
+        q = re.sub(r"^\s*\d+\s*-\s*", "", val)
+        cleaned = q.strip()
+        if cleaned:
+            out.append(cleaned)
     return out
 
 def _lower(x): 
@@ -207,6 +206,53 @@ class DiagnosisEngineFlatRowTests(SimpleTestCase):
         }
         missing = expected - got
         self.assertFalse(missing, f"Missing: {missing}\nGot: {got}\nRaw: {out}")
+
+    def test_etiology_with_internal_comma_remains_intact(self):
+        df = self.engine.df
+        match = df[
+            df["Etiology"]
+            .astype(str)
+            .str.contains("Persistent infection (e.g., missed canal)", na=False, regex=False)
+        ]
+        self.assertGreater(len(match), 0, "Test requires a sheet row with the target etiology")
+        row = match.iloc[0]
+
+        answers = self._answers_from_row(row)
+        # Simulate user explicitly selecting the etiology that contains a comma.
+        answers["Etiology Assessment"] = ["Persistent infection (e.g., missed canal)"]
+
+        out = self.engine.run(answers)
+        results = out.get("results", [])
+        self.assertGreater(len(results), 0, f"Engine did not return results for answers: {answers}")
+        etiologies = results[0].get("etiology_list", [])
+        self.assertIn("Persistent infection (e.g., missed canal)", etiologies)
+
+    def test_page1_not_defined_and_no_treated_as_wildcards(self):
+        answers = {
+            "P": "Yes",
+            "Q": "No",
+            "R": "No",
+            "S": "Yes",
+            "T": "No",
+            "U": "No",
+            "V": "Not Defined",
+            "W": "No",
+            "etiology_assessment": ["Not sure"],
+            "endo_history": "Previously treated",
+            "E": "Negative",
+            "H": "Positive",
+            "I": "Positive",
+            "J": "Negative",
+            "K": "Negative",
+            "L": "Positive",
+            "N": "Periapical lesion (> 2 mm)",
+        }
+
+        out = self.engine.diagnose(answers)
+        self.assertTrue(out, "Expected wildcard handling to return matches")
+        etiologies = {entry.get("etiology") for entry in out}
+        self.assertIn("Periodontal disease", etiologies)
+        self.assertIn("Non-endodontic pain", etiologies)
 
 
 

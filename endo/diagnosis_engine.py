@@ -117,19 +117,51 @@ class DiagnosisEngine:
         return str(x or "").strip().lower()
 
     @staticmethod
+    def _split_cell_values(cell: object) -> List[str]:
+        """
+        Split comma-delimited values while preserving commas that appear inside parentheses.
+        Example: "1- A, 2- B (e.g., sample)" -> ["1- A", "2- B (e.g., sample)"].
+        """
+        s = str(cell or "")
+        if not s or s.lower() == "nan":
+            return []
+
+        tokens: List[str] = []
+        current: List[str] = []
+        depth = 0
+
+        for ch in s:
+            if ch == "," and depth == 0:
+                token = "".join(current).strip()
+                if token:
+                    tokens.append(token)
+                current = []
+                continue
+
+            current.append(ch)
+            if ch == "(":
+                depth += 1
+            elif ch == ")" and depth:
+                depth -= 1
+
+        tail = "".join(current).strip()
+        if tail:
+            tokens.append(tail)
+
+        return tokens
+
+    @staticmethod
     def _cell_tokens(cell: object) -> Set[str]:
         """
         "1- No,2- Yes" -> {"no", "yes"}
         BLANK/NaN -> empty set (treated as wildcard by matcher).
         """
-        s = str(cell or "")
-        if not s or s.lower() == "nan":
-            return set()
-        parts = [p.strip() for p in s.split(",") if p.strip()]
         toks: List[str] = []
-        for p in parts:
-            q = re.sub(r"^\s*\d+\s*-\s*", "", p)  # strip any "1- "
-            toks.append(str(q).strip().lower())
+        for part in DiagnosisEngine._split_cell_values(cell):
+            q = re.sub(r"^\s*\d+\s*-\s*", "", part)  # strip any "1- "
+            cleaned = str(q).strip().lower()
+            if cleaned:
+                toks.append(cleaned)
         return set(toks)
 
     @staticmethod
@@ -144,8 +176,7 @@ class DiagnosisEngine:
         if not s or s.lower() == "nan":
             return tokens
 
-        parts = [p.strip() for p in s.split(",") if p.strip()]
-        for part in parts:
+        for part in self._split_cell_values(s):
             cleaned = re.sub(r"^\s*\d+\s*-\s*", "", part).strip()
             if not cleaned:
                 continue
@@ -194,6 +225,7 @@ class DiagnosisEngine:
             etiology_list = list(etiologies)
             formatted.append(
                 {
+                    "section_label": "Pulp Diagnosis",
                     "pulp_diagnosis": bucket["pulp_diagnosis"],
                     "periapical_disease": bucket["periapical_disease"],
                     "etiology": sentence,
@@ -234,6 +266,10 @@ class DiagnosisEngine:
     def _row_matches_page1(self, row: pd.Series, page1_answers: Dict[str, object]) -> bool:
         if not isinstance(page1_answers, dict):
             return True
+
+        wildcard_tokens = {"", "not defined", "not sure", "unsure", "unknown", "n/a", "na"}
+        pain_quality_optional = {"no", "none", "not defined", "not sure"}
+
         for qid, col in PAGE1_ID_TO_COL.items():
             if qid not in page1_answers:
                 continue
@@ -249,12 +285,15 @@ class DiagnosisEngine:
                 user_tokens = {user_choice} if raw_value is not None else set()
 
             is_pain_quality = (qid in PAIN_QUALITY_QIDS) or (col == PAIN_QUALITY_COLUMN)
-            if is_pain_quality:
-                if not user_tokens or "not defined" in user_tokens:
-                    continue
+
+            normalized_tokens = {tok for tok in user_tokens if tok}
+            skip_tokens = wildcard_tokens | (pain_quality_optional if is_pain_quality else set())
+            effective_tokens = normalized_tokens - skip_tokens
+            if not normalized_tokens or not effective_tokens:
+                continue
 
             tokens = self._cell_tokens(row.get(col, ""))
-            if tokens and not (user_tokens & tokens):
+            if tokens and not (effective_tokens & tokens):
                 return False
         return True
 

@@ -13,6 +13,14 @@ AIProvider = Callable[[Dict[str, object], str], Optional[str]]
 
 # ----------------------------- data objects -----------------------------
 
+_PERCUSSION_KEYS = {"I", "Percussion"}
+_BITE_KEYS = {
+    "S",
+    "Does biting/chewing trigger/aggravate the pain?",
+}
+_POSITIVE_TOKENS = {"positive", "yes", "present", "y"}
+_NEGATIVE_TOKENS = {"negative", "no", "absent", "n"}
+
 @dataclass(frozen=True)
 class AssistMessage:
     """Structured message presented to clinicians alongside diagnoses."""
@@ -25,6 +33,39 @@ class AssistMessage:
 
 def _norm(value: object) -> str:
     return str(value or "").strip().lower()
+
+
+def _apply_interdependent_overrides(answers: Dict[str, object]) -> None:
+    """
+    Adjust related answers before evaluation.
+    Percussion 'positive' overrules a 'No' response for biting/chewing pain.
+    """
+    if not isinstance(answers, dict):
+        return
+
+    percussion_value: Optional[str] = None
+    for key in _PERCUSSION_KEYS:
+        if key in answers and str(answers[key]).strip():
+            percussion_value = _norm(answers[key])
+            break
+
+    if percussion_value not in _POSITIVE_TOKENS:
+        return
+
+    bite_marked_positive = False
+    for key in _BITE_KEYS:
+        if key not in answers:
+            continue
+        raw = answers[key]
+        normalized = _norm(raw)
+        if normalized in _NEGATIVE_TOKENS or not normalized:
+            answers[key] = "Yes"
+        if _norm(answers[key]) in _POSITIVE_TOKENS:
+            bite_marked_positive = True
+
+    if not bite_marked_positive:
+        # Ensure engine sees a positive biting answer even if key absent.
+        answers.setdefault("S", "Yes")
 
 
 def _parse_tooth_number(raw: object) -> Optional[int]:
@@ -199,6 +240,7 @@ class DiagnosisService:
         use_ai_fallback: bool = True,
     ) -> Dict[str, Any]:
         answers = answers or {}
+        _apply_interdependent_overrides(answers)
         base = self.engine.run(answers)
 
         results: List[Dict[str, Any]] = list(base.get("results", [])) # type: ignore
