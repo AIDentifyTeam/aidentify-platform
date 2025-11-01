@@ -36,6 +36,7 @@ def test_payload_with_rules_engine_results_only():
         "source": "rules_engine",
         "results": [
             {
+                "section_label": "Pulp Diagnosis",
                 "pulp_diagnosis": "Normal Pulp",
                 "periapical_disease": "Normal",
                 "etiology": "Possible etiologies: Caries",
@@ -63,6 +64,7 @@ def test_payload_marks_rule_override_summary():
         "result_source": "rule_override",
         "results": [
             {
+                "section_label": "Pulp Diagnosis",
                 "pulp_diagnosis": "Symptomatic Irreversible Pulpitis",
                 "periapical_disease": "Symptomatic Apical Periodontitis",
                 "etiology": "Possible etiologies: Not specified",
@@ -89,6 +91,18 @@ def test_ai_fallback_invoked_when_no_matches():
     types = {msg["type"] for msg in payload["ai_assist"]["messages"]}
     assert {"warning", "info"}.issubset(types)
     assert ai.calls # type: ignore
+
+
+def test_percussion_positive_overrides_bite_history():
+    response = {"source": "rules_engine", "results": []}
+    service, engine, _ = _service(response)
+
+    answers = {"I": "Positive", "S": "No"}
+    service.generate_payload(answers)
+
+    recorded = engine.calls[0]
+    assert recorded["S"] == "Yes"
+    assert answers["S"] == "Yes"
 
 
 def test_ai_not_invoked_when_disabled():

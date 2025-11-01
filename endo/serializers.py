@@ -107,7 +107,7 @@ class VisitHistorySerializer(serializers.ModelSerializer):
         tooth_num = data.get("tooth_number")
         if tooth_num is not None:
             answers = dict(answers)
-            answers.setdefault("tooth_number", tooth_num)
+            answers["tooth_number"] = tooth_num
             data["answers"] = answers
         dx = generate_diagnosis_payload(answers, use_ai_fallback=True)
         self._apply_dx_result_dict(data, dx)
@@ -116,9 +116,10 @@ class VisitHistorySerializer(serializers.ModelSerializer):
         ans = instance.answers or {}
         if instance.tooth_number is not None:
             ans = dict(ans)
-            ans.setdefault("tooth_number", instance.tooth_number)
+            ans["tooth_number"] = instance.tooth_number
         dx = generate_diagnosis_payload(ans, use_ai_fallback=True) # type: ignore
         instance.results = clean_json(dx)
+        instance.answers = clean_json(ans)
 
         # same mapping logic to top-level fields
         pulp = peri = etio = ""
@@ -152,13 +153,18 @@ class VisitHistorySerializer(serializers.ModelSerializer):
                 instance.tooth_image.delete(save=False)
             instance.tooth_image = None
 
+        original_tooth_number = instance.tooth_number
         answers_changed = "answers" in validated_data
+        tooth_number_changed = (
+            "tooth_number" in validated_data
+            and validated_data["tooth_number"] != original_tooth_number
+        )
         instance = super().update(instance, validated_data)
 
-        # recompute only when answers changed (or always, if you prefer)
-        if answers_changed:
+        # recompute when inputs that influence diagnosis changed
+        if answers_changed or tooth_number_changed:
             self._apply_diagnosis_to_instance(instance)
-            instance.save(update_fields=["results", "pulp_diagnosis", "periapical_disease", "etiology"])
+            instance.save(update_fields=["answers", "results", "pulp_diagnosis", "periapical_disease", "etiology"])
 
         return instance
 
