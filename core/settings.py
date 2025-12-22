@@ -17,9 +17,9 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-VERSION = "v0.3.2"
+VERSION = "v0.3.3"
 VERSION_NAME = "Strawberry"
-EXCEL_CORE_PATH = "endo/data/pulp_v0.3.2.xlsx"
+EXCEL_CORE_PATH = "endo/data/pulp_v0.3.3.xlsx"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
