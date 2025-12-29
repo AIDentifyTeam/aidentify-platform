@@ -20,6 +20,29 @@ _BITE_KEYS = {
 }
 _POSITIVE_TOKENS = {"positive", "yes", "present", "y"}
 _NEGATIVE_TOKENS = {"negative", "no", "absent", "n"}
+_REFERRED_PAIN_KEYS = {
+    "X",
+    "Referred pain",
+    "referred_pain",
+    "Do you also feel the pain in other areas like jawbone, ear, or temple, or eye, or cheek?",
+    "Do you also feel the pain in other areas like jawbone, ear, or\n"
+    "temple, or eye, or cheek?",
+}
+_NON_ENDODONTIC_PAIN = "non-endodontic pain"
+_OROFACIAL_REFERRAL_MESSAGE = (
+    "If you think the source of patients’ symptoms is non-dental, you can refer them to an orofacial pain specialist for further evaluations"
+)
+
+_PAIN_QUALITY_TOKENS = {
+    "dull",
+    "sharp",
+    "throbbing",
+    "radiating",
+    "shooting",
+    "stabbing",
+    "burning",
+    "aching",
+}
 
 @dataclass(frozen=True)
 class AssistMessage:
@@ -42,6 +65,46 @@ def _apply_interdependent_overrides(answers: Dict[str, object]) -> None:
     """
     if not isinstance(answers, dict):
         return
+
+    # Defensive cleanup for historic / buggy key mappings.
+    # Some clients mistakenly stored pain quality under "V" and referred pain under "W",
+    # which causes the rule engine to reject otherwise valid rows.
+    v_raw = answers.get("V")
+    v = _norm(v_raw)
+    w_raw = answers.get("W")
+    w = _norm(w_raw)
+
+    if w in (_POSITIVE_TOKENS | _NEGATIVE_TOKENS) and not _norm(answers.get("X")):
+        answers["X"] = w_raw
+        answers.pop("W", None)
+
+    if v and v not in (_POSITIVE_TOKENS | _NEGATIVE_TOKENS):
+        if v in _PAIN_QUALITY_TOKENS and (
+            not _norm(answers.get("W")) or _norm(answers.get("W")) in (_POSITIVE_TOKENS | _NEGATIVE_TOKENS)
+        ):
+            answers["W"] = v_raw
+        # "V" is expected to be a yes/no sleep-impact answer; drop invalid values.
+        answers.pop("V", None)
+
+    cold = None
+    for key in ("Cold Test", "E"):
+        if key in answers and str(answers[key]).strip():
+            cold = _norm(answers[key])
+            break
+
+    if cold == "lingering pain":
+        q_key = None
+        q_value = None
+        for key in ("Q", "Does cold temperature trigger/aggravate the pain?"):
+            if key in answers and str(answers[key]).strip():
+                q_key = key
+                q_value = _norm(answers[key])
+                break
+        if q_value and ("negative" in q_value):
+            # Align cold trigger history with lingering cold response
+            answers["Q"] = "For a few seconds"
+            if q_key and q_key != "Q":
+                answers[q_key] = "For a few seconds"
 
     percussion_value: Optional[str] = None
     for key in _PERCUSSION_KEYS:
@@ -97,6 +160,35 @@ def _pain_reported(answers: Dict[str, object]) -> bool:
     return secondary in {"yes", "toothache", "pain"}
 
 
+def _referred_pain_reported(answers: Dict[str, object]) -> bool:
+    for key in _REFERRED_PAIN_KEYS:
+        if _norm(answers.get(key)) in _POSITIVE_TOKENS:
+            return True
+    return False
+
+
+def _non_endodontic_pain_selected(answers: Dict[str, object]) -> bool:
+    selected = answers.get("Etiology Assessment", answers.get("etiology_assessment", []))
+    if isinstance(selected, str):
+        items = [selected]
+    else:
+        items = list(selected or [])
+    return any(_norm(item) == _NON_ENDODONTIC_PAIN for item in items if str(item).strip())
+
+
+def _has_non_endodontic_pain_result(results: Iterable[Dict[str, Any]]) -> bool:
+    for result in results:
+        if _norm(result.get("pulp_diagnosis")) == _NON_ENDODONTIC_PAIN:
+            return True
+        etiology_list = result.get("etiology_list")
+        if isinstance(etiology_list, list):
+            if any(_norm(item) == _NON_ENDODONTIC_PAIN for item in etiology_list):
+                return True
+        if _NON_ENDODONTIC_PAIN in _norm(result.get("etiology")):
+            return True
+    return False
+
+
 def _messages_from_context(
     *,
     answers: Dict[str, object],
@@ -105,6 +197,7 @@ def _messages_from_context(
     ai_output: Optional[str],
 ) -> List[AssistMessage]:
     messages: List[AssistMessage] = []
+    results_list = list(results)
 
     tooth_number_raw = (
         answers.get("tooth_number")
@@ -125,6 +218,21 @@ def _messages_from_context(
             )
         )
 
+    if _has_non_endodontic_pain_result(results_list) and _referred_pain_reported(answers):
+        messages.append(
+            AssistMessage(
+                type="info",
+                text=_OROFACIAL_REFERRAL_MESSAGE,
+            )
+        )
+    elif _non_endodontic_pain_selected(answers) and _referred_pain_reported(answers):
+        messages.append(
+            AssistMessage(
+                type="info",
+                text=_OROFACIAL_REFERRAL_MESSAGE,
+            )
+        )
+
     if ai_output:
         messages.append(
             AssistMessage(
@@ -133,7 +241,6 @@ def _messages_from_context(
             )
         )
 
-    results_list = list(results)
     if not messages and results_list:
         messages.append(
             AssistMessage(
@@ -141,7 +248,7 @@ def _messages_from_context(
                 text="No additional warnings detected. Findings appear consistent with the rule-based diagnosis; still confirm clinically.",
             )
         )
-    elif not messages and not ai_output:
+    if not results_list and not ai_output and not any(msg.type == "warning" for msg in messages):
         messages.append(
             AssistMessage(
                 type="warning",
