@@ -227,6 +227,12 @@ class DiagnosisEngineFlatRowTests(SimpleTestCase):
         etiologies = results[0].get("etiology_list", [])
         self.assertIn("Persistent infection (e.g., missed canal)", etiologies)
 
+    def test_etiology_choices_unfiltered_returns_all(self):
+        answers = {"P": "No", "Q": "No"}
+        choices = self.engine.etiology_choices_from_page1(answers)
+        self.assertEqual(set(choices), set(self.engine._all_etiologies))
+        self.assertGreater(len(choices), 0)
+
     def test_page1_not_defined_and_no_treated_as_wildcards(self):
         answers = {
             "P": "Yes",
@@ -254,6 +260,53 @@ class DiagnosisEngineFlatRowTests(SimpleTestCase):
         self.assertIn("Periodontal disease", etiologies)
         self.assertIn("Non-endodontic pain", etiologies)
 
+
+class AbscessPulpOverrideTests(SimpleTestCase):
+    def setUp(self):
+        # Bypass __init__ since we only need the helper and stateless methods.
+        self.engine = DiagnosisEngine.__new__(DiagnosisEngine)
+
+    def test_previously_treated_overrides_pulp_for_chronic_abscess(self):
+        results = [
+            {
+                "pulp_diagnosis": "Old value",
+                "periapical_disease": "Chronic apical abscess",
+                "etiology": "",
+            }
+        ]
+        answers = {"Endodontic Treatment History": "Previously treated"}
+
+        self.engine._apply_abscess_pulp_override(results, answers)
+
+        self.assertEqual(results[0]["pulp_diagnosis"], "Previously treated")
+
+    def test_previously_initiated_and_default_necrosis_paths(self):
+        acute_result = [
+            {
+                "pulp_diagnosis": "Old value",
+                "periapical_disease": "Acute apical abscess",
+                "etiology": "",
+            }
+        ]
+        chronic_result = [
+            {
+                "pulp_diagnosis": "Keep",
+                "periapical_disease": "Chronic apical abscess",
+                "etiology": "",
+            },
+            {
+                "pulp_diagnosis": "Unchanged",
+                "periapical_disease": "Normal",
+                "etiology": "",
+            },
+        ]
+
+        self.engine._apply_abscess_pulp_override(acute_result, {"M": "No", "O": "Positive"})
+        self.engine._apply_abscess_pulp_override(chronic_result, {})
+
+        self.assertEqual(acute_result[0]["pulp_diagnosis"], "Previously initiated therapy")
+        self.assertEqual(chronic_result[0]["pulp_diagnosis"], "Pulp necrosis")
+        self.assertEqual(chronic_result[1]["pulp_diagnosis"], "Unchanged")
 
 
 # ========= DB + API PERMISSION TESTS =========

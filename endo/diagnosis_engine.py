@@ -185,6 +185,42 @@ class DiagnosisEngine:
 
         return tokens
 
+    def _history_flags(self, answers: Dict[str, object]) -> Tuple[bool, bool]:
+        """Infer history flags from either the history field or raw M/O answers."""
+        if not isinstance(answers, dict):
+            return False, False
+
+        hist = self._norm(answers.get("Endodontic Treatment History",
+                                       answers.get("endo_history", "")))
+        prev_treated = hist == "previously treated"
+        prev_initiated = hist in {"previously initiated", "previously initiated therapy"}
+
+        prev_treated = prev_treated or (self._norm(answers.get(HIST_PREV_TREATED_ID)) in {"positive", "yes"})
+        prev_initiated = prev_initiated or (self._norm(answers.get(HIST_PREV_INITIATED_ID)) in {"positive", "yes"})
+
+        return prev_treated, prev_initiated
+
+    def _apply_abscess_pulp_override(self, results: List[Dict[str, str]], answers: Dict[str, object]) -> None:
+        """
+        For Chronic/Acute apical abscess rows, set pulp diagnosis based on treatment history.
+        Priority: previously treated > previously initiated > pulp necrosis.
+        """
+        if not results:
+            return
+
+        prev_treated, prev_initiated = self._history_flags(answers)
+        if prev_treated:
+            pulp_value = "Previously treated"
+        elif prev_initiated:
+            pulp_value = "Previously initiated therapy"
+        else:
+            pulp_value = "Pulp necrosis"
+
+        for entry in results:
+            peri = self._norm(entry.get("periapical_disease"))
+            if peri in {"chronic apical abscess", "acute apical abscess"}:
+                entry["pulp_diagnosis"] = pulp_value
+
     def _format_grouped_results(self, results: List[Dict[str, str]]) -> List[Dict[str, object]]:
         """Merge duplicate pulp/periapical rows and add a combined etiology sentence."""
         grouped: "OrderedDict[Tuple[str, str], Dict[str, Any]]" = OrderedDict()
@@ -300,25 +336,8 @@ class DiagnosisEngine:
     # -------------------- Step-1 availability --------------------
 
     def etiology_choices_from_page1(self, page1_answers: Dict[str, object]) -> List[str]:
-        answers = page1_answers or {}
-        mask = self.df.apply(lambda r: self._row_matches_page1(r, answers), axis=1)
-        matched = self.df[mask]
-
-        if matched.empty:
-            return []
-
-        etio_cells = matched["Etiology"].astype(str)
-        has_wildcard = etio_cells.str.strip().str.lower().isin({"none", "any", "all"}).any()
-        if has_wildcard:
-            return list(self._all_etiologies)
-
-        res_lower: Set[str] = set()
-        for val in etio_cells:
-            for t in self._etiology_tokens(val):
-                if t and t not in {"none", "any", "all"}:
-                    res_lower.add(t)
-
-        return sorted(self._etiology_name_by_lower.get(t, t) for t in res_lower)
+        # Filtering by page-1 answers is disabled by request; always return all known etiologies.
+        return list(self._all_etiologies)
 
 
     def diagnose(self, answers: Dict[str, object]):
@@ -337,15 +356,20 @@ class DiagnosisEngine:
 
             prev_tr = self._norm(row.get("Previously treated", ""))
             prev_in = self._norm(row.get("Previously initiated", ""))
+            row_pulp = self._norm(row.get("Pulp Dx", ""))
 
             if hist == "no previous endodontics treatment":
-                if ("positive" in prev_tr) or ("positive" in prev_in):
+                if (
+                    ("positive" in prev_tr)
+                    or ("positive" in prev_in)
+                    or row_pulp in {"previously treated", "previously initiated therapy"}
+                ):
                     continue
             elif hist == "previously treated":
-                if "positive" not in prev_tr:
+                if ("positive" not in prev_tr) and (row_pulp != "previously treated"):
                     continue
             elif hist == "previously initiated":
-                if "positive" not in prev_in:
+                if ("positive" not in prev_in) and (row_pulp != "previously initiated therapy"):
                     continue
 
             # ---------- Strict etiology filter ----------
@@ -395,6 +419,9 @@ class DiagnosisEngine:
             if fallback_raw:
                 results_raw = fallback_raw
                 result_source = "rule_override"
+
+        if results_raw:
+            self._apply_abscess_pulp_override(results_raw, answers)
 
         formatted: List[Dict[str, object]] = []
         if results_raw:

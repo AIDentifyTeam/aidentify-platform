@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-from decouple import config
+from decouple import Csv, config
 from datetime import timedelta
 import os
 from pathlib import Path
@@ -17,9 +17,9 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-VERSION = "v0.3.2"
+VERSION = "v0.3.3"
 VERSION_NAME = "Strawberry"
-EXCEL_CORE_PATH = "endo/data/pulp_v0.3.2.xlsx"
+EXCEL_CORE_PATH = "endo/data/pulp_v0.3.3.xlsx"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -54,9 +54,31 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "https://app.aidentify.app",
-]
+CORS_ALLOWED_ORIGINS = list(
+    config(
+        "CORS_ALLOWED_ORIGINS",
+        default="https://app.aidentify.app",
+        cast=Csv(),
+    )
+)
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = list(
+        dict.fromkeys(
+            CORS_ALLOWED_ORIGINS
+            + [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
+        )
+    )
+
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+    ]
 
 ROOT_URLCONF = 'core.urls'
 
